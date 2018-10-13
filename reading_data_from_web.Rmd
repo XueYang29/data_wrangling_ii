@@ -1,0 +1,200 @@
+---
+title: "reading_data_from_web"
+author: "Xue Yang"
+date: "10/11/2018"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+
+knitr::opts_chunk$set(
+  fig.width = 6,
+  fig.asp = .6,
+  out.width = "90%"
+)
+
+theme_set(theme_bw() + theme(legend.position = "bottom"))
+```
+
+Load some packages
+```{r}
+library(rvest)
+library(httr)
+```
+
+## Scrape a table
+
+First get the HTML
+
+```{r}
+url = "http://samhda.s3-us-gov-west-1.amazonaws.com/s3fs-public/field-uploads/2k15StateFiles/NSDUHsaeShortTermCHG2015.htm"
+
+# to get the html and load them in R
+drug_use_xml = read_html(url) 
+```
+
+Get the tables from the HTML
+
+```{r}
+# extracting the tables from the HTML 
+# This has extracted all of the tables on the original page; that’s why we have a list with 15 elements.
+drug_use_xml %>% 
+  html_nodes(css = "table") %>% 
+  class
+```
+
+```{r}
+# figure on the first table
+drug_use_xml %>% 
+  html_nodes(css = "table") %>% 
+  .[[1]]
+```
+
+
+```{r}
+# take this table and covert the html code to something work inside of R
+drug_use_xml %>% 
+  html_nodes(css = "table") %>% 
+  .[[1]] %>%  
+  html_table() %>% class # looks bad because it's data.frame
+```
+
+```{r}
+drug_use_xml %>% 
+  html_nodes(css = "table") %>% 
+  .[[1]] %>% 
+  html_table()  # View it will looks well because the "NOTE" apper in the top
+```
+
+```{r}
+# take out the first row
+drug_use_xml %>% 
+  html_nodes(css = "table") %>% 
+  .[[1]] %>% 
+  html_table() %>% 
+  slice(2:10) #  or slice(-1) 
+# silce can only extract rows by number, filter do 99% safer than slice
+```
+
+```{r}
+# conver the data.fram to tibble
+drug_use_xml %>% 
+  html_nodes(css = "table") %>% 
+  .[[1]] %>% 
+  html_table() %>% 
+  slice(-1) %>% 
+  as_tibble() 
+```
+
+
+#### Cost for living on NY:
+
+
+```{r}
+nyc_cost = 
+  read_html("https://www.bestplaces.net/cost_of_living/city/new_york/new_york") %>% 
+  html_nodes(css = "table") %>% 
+  .[[1]] %>% 
+  html_table() # the first row is "Xi"
+```
+
+```{r}
+nyc_cost = 
+  read_html("https://www.bestplaces.net/cost_of_living/city/new_york/new_york") %>% 
+  html_nodes(css = "table") %>% 
+  .[[1]] %>% 
+  html_table(header = TRUE) # the first row is the name
+
+```
+
+
+## Harry Potter
+
+Let's get some Potter data!
+
+```{r}
+hpsaga_html = read_html("https://www.imdb.com/list/ls000630791/")
+
+# use selector gadget  to get the specific piece we want
+titles = hpsaga_html %>% 
+  html_nodes(css = ".lister-item-header a") %>% 
+  html_text()
+
+money = hpsaga_html %>% 
+  html_nodes(css = ".text-muted .ghost~ .text-muted+ span") %>% 
+  html_text()
+
+hpsaga_df = tibble(
+  title = titles,
+  gross_rev = money
+)
+
+```
+
+
+## N
+
+```{r}
+dynamite_html = read_html("https://www.amazon.com/product-reviews/B00005JNBQ/ref=cm_cr_arp_d_viewopt_rvwer?ie=UTF8&reviewerType=avp_only_reviews&sortBy=recent&pageNumber=2") 
+
+
+review_titles = dynamite_html %>%
+  html_nodes("#cm_cr-review_list .a-color-base") %>%
+  html_text()
+
+review_stars = dynamite_html %>%
+  html_nodes("#cm_cr-review_list .review-rating") %>%
+  html_text()
+
+review_text = dynamite_html %>%
+    html_nodes(".review-data:nth-child(4)") %>%
+    html_text()
+
+reviews = tibble(
+  title = review_titles,
+  stars = review_stars,
+  text = review_text
+)
+
+```
+
+## APIs
+
+Get the water data as CSV
+
+```{r}
+nyc_water = GET("https://data.cityofnewyork.us/resource/waf7-5gvc.csv") %>% 
+  content("parse")
+# ?content
+```
+
+As JSON
+
+```{r}
+nyc_water = GET("https://data.cityofnewyork.us/resource/waf7-5gvc.json") %>% 
+  content("parse")
+```
+
+```{r}
+nyc_water = GET("https://data.cityofnewyork.us/resource/waf7-5gvc.json") %>% 
+  content("text") %>%
+  jsonlite::fromJSON() %>%
+  as_tibble()
+```
+
+
+BRFSS
+
+```{r}
+brfss_smart2010 = 
+  GET("https://data.cdc.gov/api/views/acme-vg9e/rows.csv?accessType=DOWNLOAD") %>% 
+  content("parsed")
+```
+
+
+```{r}
+poke = GET("http://pokeapi.co/api/v2/pokemon/1") %>%
+  content()
+```
+
